@@ -26,6 +26,11 @@ public class RombergTest {
 	@Column(nullable = false)
 	private Integer sampleCount;
 
+	@Column(unique = true)
+	private String sessionName;
+
+	private String source;
+
 	@Column(nullable = false, columnDefinition = "TEXT")
 	private String csvContent;
 
@@ -58,6 +63,22 @@ public class RombergTest {
 
 	public void setSampleCount(Integer sampleCount) {
 		this.sampleCount = sampleCount;
+	}
+
+	public String getSessionName() {
+		return sessionName;
+	}
+
+	public void setSessionName(String sessionName) {
+		this.sessionName = sessionName;
+	}
+
+	public String getSource() {
+		return source;
+	}
+
+	public void setSource(String source) {
+		this.source = source;
 	}
 
 	public String getCsvContent() {

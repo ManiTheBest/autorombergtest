@@ -7,4 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RombergTestRepository extends JpaRepository<RombergTest, Long> {
 
 	List<RombergTest> findAllByOrderByCreatedAtDesc();
+
+	boolean existsBySessionName(String sessionName);
+
+	List<RombergTest> findBySource(String source);
 }

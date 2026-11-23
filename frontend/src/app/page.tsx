@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ModelAccuracy } from "@/components/ModelAccuracy";
+import { PendingReview } from "@/components/PendingReview";
 import { WaveVisual } from "@/components/WaveVisual";
 import { listTests, type TestSummary } from "@/lib/api";
 
@@ -42,25 +44,29 @@ export default async function HomePage() {
             AutoRomberg
           </h1>
           <p className="anim-rise-delay-2 mt-5 max-w-xl text-lg leading-relaxed text-white/72 sm:text-xl">
-            Capture standing-balance IMU streams from the ESP32 and review stored sessions with
-            clinical clarity.
+            Device captures arrive for review first. Approve a cleaned accelerometer CSV
+            (ax,&nbsp;ay,&nbsp;az) before it is written to Neon.
           </p>
           <div className="anim-rise-delay-2 mt-9 flex flex-wrap gap-3">
             <a
-              href="#sessions"
+              href="#pending"
               className="cta-primary inline-flex items-center rounded-md bg-signal px-5 py-3 text-sm font-semibold text-ink"
             >
-              Open session library
+              Review incoming captures
             </a>
-            <Link
-              href={tests[0] ? `/tests/${tests[0].id}` : "#sessions"}
+            <a
+              href="#sessions"
               className="cta-secondary inline-flex items-center rounded-md border border-white/25 px-5 py-3 text-sm font-medium text-white"
             >
-              {tests[0] ? "Latest session" : "Awaiting first capture"}
-            </Link>
+              Session library
+            </a>
           </div>
         </div>
       </section>
+
+      <ModelAccuracy />
+
+      <PendingReview />
 
       <section id="sessions" className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -69,10 +75,11 @@ export default async function HomePage() {
               Session library
             </p>
             <h2 className="mt-2 font-display text-3xl tracking-tight text-ink sm:text-4xl">
-              Recorded Romberg tests
+              Saved Romberg tests
             </h2>
             <p className="mt-3 max-w-2xl text-muted">
-              Each row is a 30-second capture posted by the device into Neon through the Spring API.
+              Sessions you approved are stored in Neon as cleaned accelerometer CSV
+              (ax,&nbsp;ay,&nbsp;az only).
             </p>
           </div>
           <p className="font-mono text-sm text-muted">
@@ -82,9 +89,9 @@ export default async function HomePage() {
 
         {error ? (
           <div className="border border-danger/20 bg-danger-soft px-5 py-4 text-sm text-danger">
-            <p className="font-semibold">Could not reach the ingest API</p>
+            <p className="font-semibold">Could not reach the Spring API</p>
             <p className="mt-1 text-danger/80">
-              Start the Spring backend on port 8080, then refresh this page.
+              Start the Spring backend on port 8080 to list saved sessions.
             </p>
             <p className="mt-2 font-mono text-xs opacity-80">{error}</p>
           </div>
@@ -92,10 +99,11 @@ export default async function HomePage() {
 
         {!error && tests.length === 0 ? (
           <div className="border border-dashed border-line bg-panel/70 px-6 py-14 text-center">
-            <p className="font-display text-2xl text-ink">No sessions yet</p>
+            <p className="font-display text-2xl text-ink">No saved sessions yet</p>
             <p className="mx-auto mt-3 max-w-lg text-muted">
-              Flash <span className="font-mono text-foreground">romberg_capture.ino</span>, connect
-              over Serial, and run a capture. Successful uploads appear here automatically.
+              Approve a pending capture above with{" "}
+              <span className="font-medium text-foreground">Send cleaned CSV to database</span> to
+              store it in Neon.
             </p>
           </div>
         ) : null}

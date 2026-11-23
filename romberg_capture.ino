@@ -4,13 +4,15 @@
  * Pins: SDA=21, SCL=22, buzzer=25
  * Rate: 50 Hz for 30 s
  *
- * After each test, builds CSV (ax,ay,az,gx,gy,gz) and POSTs it to Spring:
- *   POST {API_BASE}/api/tests
+ * After each test, builds accelerometer CSV (ax,ay,az) and POSTs it to the
+ * Next.js web app for review (gyro is omitted for this project):
+ *   POST {API_BASE}/api/ingest
  *
  * Edit WIFI_* and API_BASE before flashing.
  * API_BASE must be your computer's LAN IP (not localhost), e.g.:
- *   http://192.168.1.20:8080
+ *   http://192.168.1.163:3000
  *
+ * The website cleans/queues the CSV; you choose whether to save it to Neon.
  * Send any character over Serial to start a test.
  */
 
@@ -23,7 +25,7 @@
 // ---- edit these before flashing ----
 const char *WIFI_SSID = "YOUR_WIFI_SSID";
 const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char *API_BASE = "http://192.168.122.52:8080"; // Mac LAN IP + Spring port
+const char *API_BASE = "http://192.168.1.163:3000"; // Mac LAN IP + Next.js port
 // ------------------------------------
 
 Adafruit_MPU6050 mpu;
@@ -87,13 +89,13 @@ String escapeJson(const String &input) {
   return out;
 }
 
-bool postCsvToApi(const String &csvContent, int sampleCount) {
+bool postCsvToWebApp(const String &csvContent, int sampleCount) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("POST skipped: WiFi not connected");
     return false;
   }
 
-  String url = String(API_BASE) + "/api/tests";
+  String url = String(API_BASE) + "/api/ingest";
   String body = "{";
   body += "\"durationMs\":30000,";
   body += "\"sampleCount\":";
@@ -119,6 +121,7 @@ bool postCsvToApi(const String &csvContent, int sampleCount) {
     Serial.println(response);
   }
 
+  // 202 Accepted = queued for review in the web app
   return code >= 200 && code < 300;
 }
 
@@ -126,7 +129,7 @@ void runRombergTest() {
   Serial.println("ROMBERG_TEST_START");
   beep(1);
 
-  String csv = "ax,ay,az,gx,gy,gz\n";
+  String csv = "ax,ay,az\n";
   int sampleCount = 0;
 
   unsigned long startTime = millis();
@@ -143,7 +146,7 @@ void runRombergTest() {
       sensors_event_t a, g, temp;
       mpu.getEvent(&a, &g, &temp);
 
-      // Serial debug still includes time_ms; stored CSV does not
+      // Serial debug still includes time_ms + gyro; uploaded CSV is accel-only
       Serial.print(now - startTime);
       Serial.print(",");
       Serial.print(a.acceleration.x, 4);
@@ -158,17 +161,14 @@ void runRombergTest() {
       Serial.print(",");
       Serial.println(g.gyro.z, 4);
 
-      char line[96];
+      char line[64];
       snprintf(
           line,
           sizeof(line),
-          "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
+          "%.4f,%.4f,%.4f\n",
           a.acceleration.x,
           a.acceleration.y,
-          a.acceleration.z,
-          g.gyro.x,
-          g.gyro.y,
-          g.gyro.z);
+          a.acceleration.z);
       csv += line;
       sampleCount++;
 
@@ -180,9 +180,9 @@ void runRombergTest() {
   Serial.print("Samples: ");
   Serial.println(sampleCount);
 
-  bool ok = postCsvToApi(csv, sampleCount);
+  bool ok = postCsvToWebApp(csv, sampleCount);
   if (ok) {
-    Serial.println("CSV uploaded to API / Neon.");
+    Serial.println("CSV queued in web app for review (ax,ay,az).");
     beep(2);
   } else {
     Serial.println("CSV upload failed.");

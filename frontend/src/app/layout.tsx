@@ -48,6 +48,12 @@ export default function RootLayout({
               </span>
             </Link>
             <nav className="flex items-center gap-6 text-sm text-muted">
+              <a href="#models" className="hidden hover:text-foreground sm:inline">
+                Models
+              </a>
+              <a href="#pending" className="hidden hover:text-foreground sm:inline">
+                Incoming
+              </a>
               <a href="#sessions" className="hidden hover:text-foreground sm:inline">
                 Sessions
               </a>

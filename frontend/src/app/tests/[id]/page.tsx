@@ -65,7 +65,8 @@ export default async function TestDetailPage({ params }: PageProps) {
             Test #{test.id}
           </h1>
           <p className="mt-4 max-w-xl text-lg text-muted">
-            Captured {formatWhen(test.createdAt)} from the MPU6050 stream and stored as CSV in Neon.
+            Captured {formatWhen(test.createdAt)}. Stored accelerometer CSV
+            (ax,&nbsp;ay,&nbsp;az) in Neon.
           </p>
         </div>
 
@@ -115,7 +116,7 @@ export default async function TestDetailPage({ params }: PageProps) {
           <div>
             <h2 className="font-display text-2xl tracking-tight text-ink">Signal preview</h2>
             <p className="mt-1 text-sm text-muted">
-              Columns: ax, ay, az, gx, gy, gz · showing first {Math.min(48, lines.length)} lines
+              Columns: ax, ay, az · showing first {Math.min(48, lines.length)} lines
             </p>
           </div>
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-muted">

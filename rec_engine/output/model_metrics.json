@@ -1,0 +1,10 @@
+{
+  "task": "eyes open vs eyes closed",
+  "protocol": "Fixed split of 10 train, 3 validation, and 3 test pairs. Each model keeps the path-length threshold from 0.018 to 0.022 with the highest validation AUC.",
+  "nPairs": 16,
+  "models": [
+    {"id": "linear_regression", "name": "Linear Regression", "plThresh": 0.018, "accuracy": 0.833333, "validationAccuracy": 0.666667, "auc": 0.888889, "validationAuc": 0.777778},
+    {"id": "svm", "name": "Support Vector Machine", "plThresh": 0.0185, "accuracy": 1, "validationAccuracy": 0.666667, "auc": 1, "validationAuc": 0.777778},
+    {"id": "neural_network", "name": "Neural Network", "plThresh": 0.0195, "accuracy": 0.333333, "validationAccuracy": 0.5, "auc": 0.444444, "validationAuc": 0.888889}
+  ]
+}
