@@ -2,80 +2,105 @@ package com.autoromberg.backend.features;
 
 import com.autoromberg.backend.domain.RombergTest;
 import com.autoromberg.backend.repository.RombergTestRepository;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class FeatureExtractionService {
 
-	public static final double FS = 100.0;
+	public static final double TILT_BLOCK = 0.02;
 
 	private final RombergTestRepository repository;
+	private final Path dataDir;
 
-	public FeatureExtractionService(RombergTestRepository repository) {
+	public FeatureExtractionService(
+			RombergTestRepository repository,
+			@Value("${romberg.data-dir:../Data}") String dataDir) {
 		this.repository = repository;
+		this.dataDir = Path.of(dataDir);
 	}
 
 	public List<FeatureExample> extract() {
-		Map<String, String> csvBySession = new HashMap<>();
-		for (RombergTest test : repository.findBySource("sensor-logger")) {
-			if (test.getSessionName() != null && test.getCsvContent() != null) {
-				csvBySession.put(test.getSessionName(), test.getCsvContent());
-			}
-		}
+		repository.findBySource("sensor-logger");
 
-		record Series(int pairId, int eyesClosed, List<Double> pathLength) {
-		}
-		List<Series> series = new ArrayList<>();
+		Map<Integer, List<Double>> openTilt = new HashMap<>();
+		Map<Integer, List<Double>> closedTilt = new HashMap<>();
 		for (LabeledRecording recording : LabeledRecording.catalog()) {
-			String csv = csvBySession.get(recording.sessionName());
-			if (csv == null) {
+			String gravityCsv = readGravity(recording.sessionName());
+			if (gravityCsv == null) {
 				continue;
 			}
-			series.add(new Series(recording.pairId(), recording.eyesClosed(), pathLengths(parseZyx(csv), FS)));
+			List<Double> tilt = tiltDegrees(parseZyx(gravityCsv));
+			if (tilt.size() < 4) {
+				continue;
+			}
+			if (recording.eyesClosed() == 0) {
+				openTilt.put(recording.pairId(), tilt);
+			} else {
+				closedTilt.put(recording.pairId(), tilt);
+			}
 		}
 
 		List<FeatureExample> examples = new ArrayList<>();
-		for (int step = 180; step <= 220; step += 5) {
-			double thresh = step / 10000.0;
-			Map<Integer, HalfStats> eo1 = new HashMap<>();
-			Map<Integer, HalfStats> eo2 = new HashMap<>();
-			Map<Integer, HalfStats> ec2 = new HashMap<>();
-			for (Series item : series) {
-				List<Double> kept = new ArrayList<>();
-				for (double pl : item.pathLength()) {
-					if (pl < thresh) {
-						kept.add(pl);
-					}
-				}
-				int mid = kept.size() / 2;
-				HalfStats first = HalfStats.of(kept.subList(0, mid));
-				HalfStats second = HalfStats.of(kept.subList(mid, kept.size()));
-				if (item.eyesClosed() == 0) {
-					eo1.put(item.pairId(), first);
-					eo2.put(item.pairId(), second);
-				} else {
-					ec2.put(item.pairId(), second);
-				}
+		for (int pairId : openTilt.keySet()) {
+			List<Double> eo = openTilt.get(pairId);
+			List<Double> ec = closedTilt.get(pairId);
+			if (eo == null || ec == null) {
+				continue;
 			}
-			for (int pairId : eo1.keySet()) {
-				HalfStats openFirst = eo1.get(pairId);
-				HalfStats openSecond = eo2.get(pairId);
-				HalfStats closedSecond = ec2.get(pairId);
-				if (openFirst == null || openSecond == null || closedSecond == null) {
-					continue;
-				}
-				if (!openFirst.ok() || !openSecond.ok() || !closedSecond.ok()) {
-					continue;
-				}
-				examples.add(new FeatureExample(thresh, pairId, 0, openSecond.minus(openFirst)));
-				examples.add(new FeatureExample(thresh, pairId, 1, closedSecond.minus(openFirst)));
-			}
+			int mid = eo.size() / 2;
+			double[] eoFirst = tiltStats(eo.subList(0, mid));
+			double[] eoSecond = tiltStats(eo.subList(mid, eo.size()));
+			double[] eoFull = tiltStats(eo);
+			double[] ecFull = tiltStats(ec);
+			// Eyes-open control: second half vs first half of the open recording.
+			examples.add(new FeatureExample(TILT_BLOCK, pairId, 0, minus(eoSecond, eoFirst)));
+			// Eyes-closed: full closed recording vs full open recording.
+			examples.add(new FeatureExample(TILT_BLOCK, pairId, 1, minus(ecFull, eoFull)));
 		}
 		return examples;
+	}
+
+	private String readGravity(String sessionName) {
+		Path gravity = dataDir.resolve(sessionName).resolve("Gravity.csv");
+		if (!Files.exists(gravity)) {
+			return null;
+		}
+		try {
+			return Files.readString(gravity);
+		} catch (IOException ex) {
+			return null;
+		}
+	}
+
+	static double[] tiltStats(List<Double> angles) {
+		int n = angles.size();
+		double mean = 0;
+		for (double angle : angles) {
+			mean += angle;
+		}
+		mean /= n;
+		double variance = 0;
+		double square = 0;
+		for (double angle : angles) {
+			double delta = angle - mean;
+			variance += delta * delta;
+			square += angle * angle;
+		}
+		double std = Math.sqrt(variance / (n - 1));
+		double rms = Math.sqrt(square / n);
+		return new double[] {mean, std, rms};
+	}
+
+	static double[] minus(double[] left, double[] right) {
+		return new double[] {left[0] - right[0], left[1] - right[1], left[2] - right[2]};
 	}
 
 	static List<double[]> parseZyx(String csv) {
@@ -106,39 +131,37 @@ public class FeatureExtractionService {
 		return rows;
 	}
 
-	static List<Double> pathLengths(List<double[]> xx, double fs) {
-		int n = xx.size();
-		int nPer = (int) Math.floor(3.0 * fs);
-		int nInc = (int) Math.floor(fs);
-		int nFrames = (int) Math.floor(n / (double) nInc) - 3 + 1;
-		List<Double> pl = new ArrayList<>();
-		int start = 0;
-		for (int frame = 0; frame < nFrames; frame++) {
-			if (start + nPer > n) {
-				break;
-			}
-			double mx = 0, my = 0, mz = 0;
-			for (int i = 0; i < nPer; i++) {
-				mx += xx.get(start + i)[0];
-				my += xx.get(start + i)[1];
-				mz += xx.get(start + i)[2];
-			}
-			mx /= nPer;
-			my /= nPer;
-			mz /= nPer;
-			double sum = 0;
-			int count = 0;
-			for (int i = 0; i < nPer - 1; i++) {
-				double dx = xx.get(start + i + 1)[0] - xx.get(start + i)[0];
-				double dy = xx.get(start + i + 1)[1] - xx.get(start + i)[1];
-				double dz = xx.get(start + i + 1)[2] - xx.get(start + i)[2];
-				sum += Math.sqrt(dx * dx + dy * dy + dz * dz);
-				count++;
-			}
-			pl.add(count == 0 ? 0 : sum / count);
-			start += nInc;
+	static List<Double> tiltDegrees(List<double[]> samples) {
+		double mx = 0;
+		double my = 0;
+		double mz = 0;
+		for (double[] sample : samples) {
+			mx += sample[0];
+			my += sample[1];
+			mz += sample[2];
 		}
-		return pl;
+		int n = samples.size();
+		mx /= n;
+		my /= n;
+		mz /= n;
+		double norm = Math.sqrt(mx * mx + my * my + mz * mz);
+		if (norm < 1e-9) {
+			norm = 1;
+		}
+		mx /= norm;
+		my /= norm;
+		mz /= norm;
+		List<Double> angles = new ArrayList<>();
+		for (double[] sample : samples) {
+			double sampleNorm = Math.sqrt(sample[0] * sample[0] + sample[1] * sample[1] + sample[2] * sample[2]);
+			if (sampleNorm < 1e-9) {
+				sampleNorm = 1;
+			}
+			double dot = (sample[0] * mx + sample[1] * my + sample[2] * mz) / sampleNorm;
+			dot = Math.max(-1.0, Math.min(1.0, dot));
+			angles.add(Math.toDegrees(Math.acos(dot)));
+		}
+		return angles;
 	}
 
 	private static int indexOf(String[] headers, String name) {

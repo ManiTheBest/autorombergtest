@@ -37,7 +37,7 @@ public class ModelEvaluationService {
 		Files.createDirectories(featureFile.getParent());
 		Files.createDirectories(metricsFile.getParent());
 		StringBuilder body = new StringBuilder();
-		body.append("# thresh pairId label med mean std skew kurtosis\n");
+		body.append("# block pairId label tilt_mean tilt_std tilt_rms\n");
 		for (FeatureExample example : examples) {
 			body.append(example.toRow()).append('\n');
 		}

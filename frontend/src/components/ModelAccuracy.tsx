@@ -39,15 +39,16 @@ export function ModelAccuracy() {
     <section id="models" className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
       <div className="mb-10 max-w-2xl">
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-          10 train / 3 validation / 3 test
+          Nested train / validation / test
         </p>
         <h2 className="mt-2 font-display text-3xl tracking-tight text-ink sm:text-4xl">
           Eyes open vs eyes closed
         </h2>
         <p className="mt-3 text-muted">
-          Spring builds path-length features for thresholds from 0.018 to 0.022. The C++ engine
-          trains on 10 subject pairs, picks each model&apos;s threshold by validation AUC, and the
-          number below is accuracy on the 3 held-out test pairs.
+          Gravity tilt mean, standard deviation, and RMS are compared within each person. Eyes
+          open is the change between the two halves of the open recording. Eyes closed is the
+          change from the full open recording to the full closed recording. The number below is
+          the average accuracy on the held-out test folds.
         </p>
       </div>
       <div className="grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-3">
@@ -60,7 +61,7 @@ export function ModelAccuracy() {
               Validation {percent(model.validationAccuracy)}
             </p>
             <p className="text-sm text-muted">
-              Test AUC {model.auc.toFixed(2)} · threshold {model.plThresh.toFixed(4)}
+              Test AUC {model.auc.toFixed(2)} · gravity tilt baseline
             </p>
           </article>
         ))}
