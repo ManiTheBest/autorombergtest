@@ -1,10 +1,10 @@
 {
   "task": "eyes open vs eyes closed",
-  "protocol": "Nested cross-validation on within-person gravity-tilt changes (mean, std, RMS). Eyes open is the open second half minus the open first half. Eyes closed is the full closed recording minus the full open recording. The SVM chooses its penalty, training length, and decision cutoff on validation, then the test pairs are scored once.",
-  "nPairs": 16,
+  "protocol": "Nested cross-validation on ESP32 device captures only. Valid path-length frames are split into two equal halves. The eyes-open first half is the baseline for both eyes-open and eyes-closed second halves. Each model keeps the path-length threshold with the best validation AUC, then the test pairs are scored once.",
+  "nPairs": 7,
   "models": [
-    {"id": "linear_regression", "name": "Linear Regression", "plThresh": 0.02, "accuracy": 0.625, "validationAccuracy": 0.583333, "auc": 0.6875, "validationAuc": 0.583333},
-    {"id": "svm", "name": "Support Vector Machine", "plThresh": 0.02, "accuracy": 0.71875, "validationAccuracy": 0.75, "auc": 0.796875, "validationAuc": 0.666667},
-    {"id": "neural_network", "name": "Neural Network", "plThresh": 0.02, "accuracy": 0.71875, "validationAccuracy": 0.708333, "auc": 0.796875, "validationAuc": 0.694444}
+    {"id": "linear_regression", "name": "Linear Regression", "plThresh": 0.07, "accuracy": 0.428571, "validationAccuracy": 0.571429, "auc": 0.142857, "validationAuc": 0.821429},
+    {"id": "svm", "name": "Support Vector Machine", "plThresh": 0.07, "accuracy": 0.142857, "validationAccuracy": 0.892857, "auc": 0.142857, "validationAuc": 0.857143},
+    {"id": "neural_network", "name": "Neural Network", "plThresh": 0.07, "accuracy": 0.571429, "validationAccuracy": 0.642857, "auc": 0.428571, "validationAuc": 0.892857}
   ]
 }

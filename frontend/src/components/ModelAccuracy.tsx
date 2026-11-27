@@ -45,10 +45,9 @@ export function ModelAccuracy() {
           Eyes open vs eyes closed
         </h2>
         <p className="mt-3 text-muted">
-          Gravity tilt mean, standard deviation, and RMS are compared within each person. Eyes
-          open is the change between the two halves of the open recording. Eyes closed is the
-          change from the full open recording to the full closed recording. The number below is
-          the average accuracy on the held-out test folds.
+          Only ESP32 device captures from Neon are used. Low path-length frames are kept, split
+          into two halves, and the eyes-open first half is the baseline. Nested cross-validation
+          scores linear regression, SVM, and the neural network on held-out pairs.
         </p>
       </div>
       <div className="grid gap-px overflow-hidden border border-line bg-line sm:grid-cols-3">
@@ -61,7 +60,7 @@ export function ModelAccuracy() {
               Validation {percent(model.validationAccuracy)}
             </p>
             <p className="text-sm text-muted">
-              Test AUC {model.auc.toFixed(2)} · gravity tilt baseline
+              Test AUC {model.auc.toFixed(2)} · path length &lt; {model.plThresh.toFixed(4)}
             </p>
           </article>
         ))}

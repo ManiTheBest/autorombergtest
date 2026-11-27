@@ -1,10 +1,10 @@
 // Nested (double) cross-validation for LR, linear SVM, and a small MLP.
-// Input rows from Spring:
-//   block pairId label tilt_mean tilt_std tilt_rms
-// Features are gravity-tilt half differences relative to the eyes-open
-// first-half baseline. Outer folds hold out the test pairs. The remaining
-// pairs are split into train and validation. The SVM picks C, training
-// passes, and its decision cutoff on validation AUC.
+// Input rows from Spring (device captures), one block per path-length threshold:
+//   thresh pairId label median mean std skew kurtosis
+// Windows with path length below the threshold are kept. Outer folds hold out
+// the test pairs. The remaining pairs are split into train and validation.
+// Each model picks its threshold on validation AUC.
+// The SVM also picks C, training passes, and its decision cutoff there.
 // Usage: ./romberg_cv features.txt model_metrics.json
 
 #include <algorithm>
@@ -48,7 +48,7 @@ static std::vector<Example> load_features(const std::string& path) {
     ss >> e.thresh >> e.pair_id >> e.label;
     double v;
     while (ss >> v) e.x.push_back(v);
-    if (e.x.size() == 3) rows.push_back(e);
+    if (e.x.size() == 5) rows.push_back(e);
   }
   return rows;
 }
@@ -345,32 +345,22 @@ int main(int argc, char** argv) {
   std::string in_path = argc > 1 ? argv[1] : "output/features.txt";
   std::string out_path = argc > 2 ? argv[2] : "output/model_metrics.json";
   auto examples = load_features(in_path);
-  const std::vector<double> grid = {0.02};
-  auto pair_ids = [&](double fraction) {
-    std::vector<int> ids;
-    for (const auto& e : examples)
-      if (e.label == 0 && std::fabs(e.thresh - fraction) < 1e-6) ids.push_back(e.pair_id);
-    std::sort(ids.begin(), ids.end());
-    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
-    return ids;
-  };
-  std::vector<int> pairs = pair_ids(grid[0]);
-  for (size_t i = 1; i < grid.size(); ++i) {
-    auto ids = pair_ids(grid[i]);
-    std::vector<int> both;
-    for (int id : pairs)
-      if (std::find(ids.begin(), ids.end(), id) != ids.end()) both.push_back(id);
-    pairs.swap(both);
-  }
-  if (pairs.size() < 16) {
-    std::cerr << "Need 16 pairs, got " << pairs.size() << "\n";
+  std::vector<double> grid;
+  for (int step = 40; step <= 250; step += 10) grid.push_back(step / 1000.0);
+  std::vector<int> pairs;
+  for (const auto& e : examples)
+    if (e.label == 0) pairs.push_back(e.pair_id);
+  std::sort(pairs.begin(), pairs.end());
+  pairs.erase(std::unique(pairs.begin(), pairs.end()), pairs.end());
+  if (pairs.size() < 4) {
+    std::cerr << "Need at least 4 device pairs, got " << pairs.size() << "\n";
     return 1;
   }
 
   std::mt19937 split_rng(2);
   std::shuffle(pairs.begin(), pairs.end(), split_rng);
-  const int outer_k = 4;
-  const int test_count = static_cast<int>(pairs.size()) / outer_k;
+  const int outer_k = pairs.size() < 8 ? static_cast<int>(pairs.size()) : 4;
+  const int test_count = std::max(1, static_cast<int>(pairs.size()) / outer_k);
 
   auto run_model = [&](const std::string& which) {
     std::vector<FoldScore> folds;
@@ -393,10 +383,12 @@ int main(int argc, char** argv) {
         for (const auto& e : rows)
           if (std::find(train_pairs.begin(), train_pairs.end(), e.pair_id) != train_pairs.end())
             train_raw.push_back(e);
+        if (train_raw.empty()) continue;
         auto z = fit_z(train_raw);
         auto train = subset(rows, train_pairs, z);
         auto val = subset(rows, val_pairs, z);
         auto test = subset(rows, test_pairs, z);
+        if (train.empty() || val.empty() || test.empty()) continue;
         std::mt19937 rng(2);
         auto val_metrics = evaluate(which, train, val, rng);
         if (val_metrics.auc > best.val_auc) {
@@ -441,6 +433,7 @@ int main(int argc, char** argv) {
         for (const auto& e : rows)
           if (std::find(train_pairs.begin(), train_pairs.end(), e.pair_id) != train_pairs.end())
             train_raw.push_back(e);
+        if (train_raw.empty()) continue;
         auto z = fit_z(train_raw);
         auto train = subset(rows, train_pairs, z);
         auto val = subset(rows, val_pairs, z);
@@ -501,7 +494,7 @@ int main(int argc, char** argv) {
   std::ofstream out(out_path);
   out << "{\n";
   out << "  \"task\": \"eyes open vs eyes closed\",\n";
-  out << "  \"protocol\": \"Nested cross-validation on within-person gravity-tilt changes (mean, std, RMS). Eyes open is the open second half minus the open first half. Eyes closed is the full closed recording minus the full open recording. The SVM chooses its penalty, training length, and decision cutoff on validation, then the test pairs are scored once.\",\n";
+  out << "  \"protocol\": \"Nested cross-validation on ESP32 device captures only. Valid path-length frames are split into two equal halves. The eyes-open first half is the baseline for both eyes-open and eyes-closed second halves. Each model keeps the path-length threshold with the best validation AUC, then the test pairs are scored once.\",\n";
   out << "  \"nPairs\": " << pairs.size() << ",\n";
   out << "  \"models\": [\n";
   auto emit = [&](const std::string& id, const std::string& name, const std::vector<FoldScore>& folds, bool last) {

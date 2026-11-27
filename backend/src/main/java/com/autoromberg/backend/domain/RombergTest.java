@@ -31,6 +31,10 @@ public class RombergTest {
 
 	private String source;
 
+	/** 1 = eyes open, 0 = eyes closed. Null when unlabeled. */
+	@Column(name = "eyes_open")
+	private Short eyesOpen;
+
 	@Column(nullable = false, columnDefinition = "TEXT")
 	private String csvContent;
 
@@ -79,6 +83,14 @@ public class RombergTest {
 
 	public void setSource(String source) {
 		this.source = source;
+	}
+
+	public Short getEyesOpen() {
+		return eyesOpen;
+	}
+
+	public void setEyesOpen(Short eyesOpen) {
+		this.eyesOpen = eyesOpen;
 	}
 
 	public String getCsvContent() {

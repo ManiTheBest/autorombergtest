@@ -30,14 +30,14 @@ public class ModelEvaluationService {
 
 	public String evaluate() throws Exception {
 		List<FeatureExample> examples = features.extract();
-		if (examples.size() < 16) {
+		if (examples.size() < 8) {
 			throw new IllegalStateException("Feature extraction produced " + examples.size()
-					+ " examples. Expected labeled eyes-open and eyes-closed pairs in Neon.");
+					+ " examples. Need labeled device eyes-open / eyes-closed pairs in Neon.");
 		}
 		Files.createDirectories(featureFile.getParent());
 		Files.createDirectories(metricsFile.getParent());
 		StringBuilder body = new StringBuilder();
-		body.append("# block pairId label tilt_mean tilt_std tilt_rms\n");
+		body.append("# thresh pairId label med mean std skew kurtosis\n");
 		for (FeatureExample example : examples) {
 			body.append(example.toRow()).append('\n');
 		}
